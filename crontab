@@ -1,0 +1,1 @@
+*/30 * * * * bash -c "cd /home/bitnami/melpa ; git pull -q ; cd /opt/bitnami/nginx/html/packages/melpa ; ./archive-contents.sh t >> ./archive-contents.log 2>&1"
