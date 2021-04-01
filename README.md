@@ -1,8 +1,11 @@
-# shmelpa
-
 > MELPA came along and destroyed the versioning scheme. Still kind of mad about that.
 >
 > &mdash; <cite>Someone with the handle "/u/tromey" claiming original authorship of `package.el`.</cite>
+
+# shmelpa
+
+![harmony](harmony.png "Version Harmony With GNU Elpa")
+*Left-frame melpa versions bear no relation to gnu's.  Right-frame shmelpa versions dovetail.*
 
 # faq
 
