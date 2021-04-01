@@ -24,11 +24,11 @@ Comment out your original `add-to-list` of melpa, and insert the following in `.
 ;;;   '("melpa" . "https://melpa.org/packages/"))
 
 (add-to-list 'package-archives
-  '("shmelpa" . "http://shmelpa.commandlinesystems.com/packages/"))
+  '("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/"))
 ```
 
 If you don't comment out the melpa line, melpa's numerically greater versions will mask shmelpa's lowly semantic versions.
 
 ## What does shmelpa stand for?
 
-"shmelpa" is not an acronym, but [shm-reduplication](https://en.wikipedia.org/wiki/Shm-reduplication) of its predecessor.
+"shmelpa" is not an acronym but rather [shm-reduplication](https://en.wikipedia.org/wiki/Shm-reduplication) of its predecessor.
