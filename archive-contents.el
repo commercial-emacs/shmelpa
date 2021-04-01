@@ -197,7 +197,7 @@ The list is displayed in a buffer named `*Packages*', and
 includes the package's version, availability status, and a
 short description."
   (interactive "P")
-  (let ((package-archives '(("shmelpa" . "http://3.140.98.146/packages/"))))
+  (let ((package-archives '(("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/"))))
     (package-initialize)
     (package-list-packages no-fetch)))
 
@@ -274,7 +274,7 @@ short description."
 		 (package-desc-full-name desired-desc)))))
 
 (cl-defun shmelpa-doctor-contents (infile outfile midfile &key one-pack (at-most 10))
-  (let ((package-archives '(("shmelpa" . "http://3.140.98.146/packages/")))
+  (let ((package-archives '(("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/")))
 	(ocontents (and (file-exists-p midfile)
 			(cdr (shmelpa--file-to-sexpr midfile))))
 	(contents (shmelpa--file-to-sexpr infile)))
