@@ -201,7 +201,7 @@ short description."
     (package-initialize)
     (package-list-packages no-fetch)))
 
-(defun shmelpa--doctor-tar (src dest undesired desired)
+(defun shmelpa--doctor-tar (name src dest undesired desired)
   (save-excursion
     (let (large-file-warning-threshold)
       (find-file src))
@@ -219,7 +219,24 @@ short description."
 				 therest)))
 	      (unless (string= oname nname)
 		;; (message "%s -> %s" oname nname)
-		(ignore-errors (tar-rename-entry nname))))
+		(ignore-errors (tar-rename-entry nname)))
+	      (when (string= (file-name-nondirectory oname)
+			     (package--description-file (file-name-directory oname)))
+		(save-excursion
+		  (tar-extract)
+		  (when tar-subfile-mode
+		    (unwind-protect
+			(progn
+			  (save-excursion
+			    (while (re-search-forward
+				    (regexp-quote
+				     (concat "\"" (cl-subseq undesired (1+ (length name))) "\""))
+				    nil t)
+			      (replace-match
+			       (concat "\"" (cl-subseq desired (1+ (length name))) "\""))))
+			  (save-buffer))
+		      (let (kill-buffer-query-functions)
+			(ignore-errors (kill-buffer))))))))
 	 until (not (zerop (forward-line)))
 	 finally do (save-buffer))
       (let (kill-buffer-query-functions)
@@ -242,8 +259,16 @@ short description."
       (copy-file srcr destr t))
     (when (file-exists-p src)
       (pcase kind
-	('tar (shmelpa--doctor-tar src dest undesired desired))
-	('single (copy-file src dest t))))))
+	('tar (shmelpa--doctor-tar name src dest undesired desired))
+	('single (with-temp-file dest
+		   (let ((coding-system-for-read 'utf-8))
+		     (save-excursion
+		       (insert-file-contents src))
+		     (save-excursion
+		       (while (re-search-forward
+			       (regexp-quote (cl-subseq undesired (1+ (length name))))
+			       nil t)
+			 (replace-match (cl-subseq desired (1+ (length name)))))))))))))
 
 (defun shmelpa-check-one-deliverable (name file kind undesired desired)
   (let* ((src (expand-file-name file shmelpa-targets-dir))
@@ -282,34 +307,6 @@ short description."
 			 (package-desc-full-name desired-desc))
 		  (push name bad)))
 	   finally return bad))
-
-(cl-defun shmelpa-doctor-deliverables (infile &key at-most)
-  (cl-loop with contents = (shmelpa--file-to-sexpr infile)
-	   with nchanged = 0
-	   until (and at-most (>= nchanged at-most))
-	   for (name . desc) in (cdr contents)
-	   for desired = (package--ac-desc-version desc)
-	   for undesired = (nthcdr (- (length desired) 2) desired)
-	   unless (shmelpa--undesired-p desired)
-	   do (let* ((kind (package--ac-desc-kind desc))
-		     (desired-desc
-		      (package-desc-create
-		       :name name
-		       :version desired
-		       :kind kind))
-		     (undesired-desc
-		      (package-desc-create
-		       :name name
-		       :version undesired
-		       :kind kind)))
-		(cl-incf nchanged)
-		(shmelpa-doctor-one-deliverable
-		 (symbol-name name)
-		 (concat (package-desc-full-name undesired-desc)
-			 (package-desc-suffix undesired-desc))
-		 kind
-		 (package-desc-full-name undesired-desc)
-		 (package-desc-full-name desired-desc)))))
 
 (cl-defun shmelpa-doctor-contents (infile outfile midfile &key specific (at-most 10))
   (let ((package-archives '(("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/")))
