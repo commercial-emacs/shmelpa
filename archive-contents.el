@@ -20,6 +20,149 @@
 (require 'lisp-mnt)
 (require 'tar-mode)
 
+(defvar shmelpa--outliers nil)
+
+(defconst shmelpa--problematic-longlink '(ac-html ox-ioslide ptemplate-templates stan-snippets yasnippet-snippets))
+
+(defconst shmelpa--outliers-check-pkg
+  '(weechat
+    tracking
+    expand-region
+    vdiff
+    caml
+    slime
+    all-the-icons
+    bind-map
+    ov
+    evil-cleverparens
+    treepy
+    base16-theme
+    snapshot-timemachine
+    uuidgen
+    thrift
+    haml-mode
+    jump
+    yasnippet
+    transient
+    purescript-mode
+    codesearch
+    paredit
+    pager
+    ox-gfm
+    forge
+    s
+    bibtex-completion
+    frecency
+    alert
+    org-present
+    matlab-mode
+    ox-slimhtml
+    graphql-mode
+    ess
+    jest
+    virtualenvwrapper
+    flim
+    mozc
+    eval-in-repl
+    calfw
+    mandoku
+    github-clone
+    friendly-shell-command
+    hl-todo
+    look-mode
+    stem
+    graphql
+    highlight
+    f
+    inflections
+    ddskk
+    keypress-multi-event
+    cfrs
+    gitignore-mode
+    bm
+    avy-menu
+    haskell-emacs
+    exec-path-from-shell
+    names
+    gitlab-ci-mode
+    magit
+    with-editor
+    ghub
+    add-node-modules-path
+    less-css-mode
+    flymake-easy
+    request-deferred
+    merlin
+    keg
+    flx
+    faust-mode
+    projectile-rails
+    smartparens
+    polymode
+    ctable
+    helm
+    closql
+    dash
+    inheritenv
+    iedit
+    emms
+    package-lint
+    initsplit
+    ace-jump-mode
+    osx-location
+    web-server
+    websocket
+    auto-complete
+    ede-php-autoload
+    e2wm
+    inlineR
+    debian-el
+    json-mode
+    ledger-mode
+    js2-refactor
+    w3m
+    pg
+    page-break-lines
+    popup
+    notmuch
+    ycmd
+    know-your-http-well
+    lean-mode
+    erlang
+    ivy
+    math-symbol-lists
+    axiom-environment
+    company-c-headers
+    evil
+    shell-split-string
+    emacsql-sqlite
+    clang-format
+    package-build
+    tree-mode
+    dash-functional
+    choice-program
+    langdoc
+    epkg
+    clmemo
+    key-chord
+    bbdb
+    outline-minor-faces
+    magit-popup
+    deferred
+    packed
+    reformatter
+    markdown-mode
+    projectile
+    flycheck
+    request
+    ccc
+    xcscope
+    skewer-mode
+    helm-core
+    geiser
+    pos-tip
+    parseedn))
+
 (defconst shmelpa-inception "0.1.0")
 
 (defconst shmelpa-recipes-dir
@@ -129,12 +272,27 @@
 	 (>= (cl-second vlist) 0)
 	 (<= (cl-second vlist) 2359))))
 
+(defun shmelpa--guess-version (version)
+  (condition-case err
+      (progn
+	(version-to-list version)
+	version)
+    (error (when (cl-search "Invalid version" (error-message-string err))
+	     (when (string-match "^\\([0-9.]+\\)" version)
+	       (match-string 1 version))))))
+
 (defun shmelpa--genuine-version ()
-  (let ((version (package-strip-rcs-id (lm-header "version")))
-	(pkg-version (package-strip-rcs-id (lm-header "package-version"))))
-    (cond ((and pkg-version (not (shmelpa--undesired-p pkg-version)))
-	   pkg-version)
-	  (t version))))
+  (cl-flet ((strip-rcs-id
+	     (str)
+	     (when str
+	       (if (string-match "\\`[ \t]*[$]Revision:[ \t]+" str)
+		   (substring str (match-end 0))
+		 str))))
+    (let ((version (shmelpa--guess-version (strip-rcs-id (lm-header "version"))))
+	  (pkg-version (shmelpa--guess-version (strip-rcs-id (lm-header "package-version")))))
+      (cond ((and pkg-version (not (shmelpa--undesired-p pkg-version)))
+	     pkg-version)
+	    (t version)))))
 
 (defun shmelpa--buffer-info ()
   (let ((foo (lambda (args)
@@ -177,10 +335,14 @@
 	     finally return version)))
 
 (defun shmelpa--winnow (contents)
-  (cl-flet ((winnow-p (package)
-		      (let ((pkg-version (package--ac-desc-version (cdr package))))
-			(version-list-< pkg-version
-					(version-to-list "20130101")))))
+  (cl-flet ((winnow-p
+	     (name-desc)
+	     (cl-destructuring-bind (name . desc)
+		 name-desc
+	       (let ((pkg-version (package--ac-desc-version desc)))
+		 (or (version-list-< pkg-version
+				     (version-to-list "20130101"))
+		     (memq name shmelpa--problematic-longlink))))))
     (cons (car contents) (cl-remove-if #'winnow-p (cdr contents)))))
 
 (defun shmelpa--file-to-sexpr (infile)
@@ -189,18 +351,6 @@
 	    (insert-file-contents infile)
 	    (buffer-string)))))
 
-(defun shmelpa-list-packages (&optional no-fetch)
-  "Display a list of packages.
-This first fetches the updated list of packages before
-displaying, unless a prefix argument NO-FETCH is specified.
-The list is displayed in a buffer named `*Packages*', and
-includes the package's version, availability status, and a
-short description."
-  (interactive "P")
-  (let ((package-archives '(("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/"))))
-    (package-initialize)
-    (package-list-packages no-fetch)))
-
 (defun shmelpa--doctor-tar (name src dest undesired desired)
   (save-excursion
     (let (large-file-warning-threshold)
@@ -208,7 +358,7 @@ short description."
     (write-file dest)
     (unwind-protect
 	(cl-loop
-	 do (when-let* ((descriptor (ignore-errors (tar-current-descriptor)))
+	 do (when-let* ((descriptor (tar-current-descriptor t))
 			(oname (tar-header-name descriptor))
 			(dirname (file-name-directory oname))
 			(therest (cl-subseq oname (length dirname)))
@@ -217,9 +367,9 @@ short description."
 				  (regexp-quote undesired)
 				  desired dirname nil 'literal)
 				 therest)))
-	      (unless (string= oname nname)
-		;; (message "%s -> %s" oname nname)
-		(ignore-errors (tar-rename-entry nname)))
+	      (condition-case err
+		  (tar-rename-entry nname)
+		(error (message "tar-rename-entry[%s]: %s" name (error-message-string err))))
 	      (when (string= (file-name-nondirectory oname)
 			     (package--description-file (file-name-directory oname)))
 		(save-excursion
@@ -359,9 +509,16 @@ short description."
 				(let* ((version*
 					(or (pcase (package-desc-kind pkg-desc)
 					      ('tar
-					       (if-let ((easy (shmelpa--untar-buffer)))
-						   easy
-						 (shmelpa--pkg-el-version name commit)))
+					       (let* ((easy (or (shmelpa--untar-buffer) ""))
+						      (pkg-version
+						       (or (when (or (zerop (length easy))
+								     (memq name shmelpa--outliers-check-pkg))
+							     (shmelpa--pkg-el-version name commit))
+							   "")))
+						 (if (string< easy pkg-version)
+						     pkg-version
+						   (unless (zerop (length easy))
+						     easy))))
 					      ('single
 					       (shmelpa--genuine-version)))
 					    shmelpa-inception))
@@ -417,6 +574,36 @@ short description."
 (defun shmelpa--gnutls-advice (f &rest args)
   (let ((gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3"))
        (apply f args)))
+
+(defun shmelpa-test-install ()
+  (let* (package-alist
+	 package-archive-contents
+	 (user-emacs-directory "/var/tmp")
+	 (package-user-dir (locate-user-emacs-file "elpa"))
+	 (load-path load-path)
+	 (package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
+                             ("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/")))
+	 (_ (package-refresh-contents))
+	 (lst
+	  (cl-remove-if-not
+	   (lambda (desc) (string= (package-desc-archive desc) "shmelpa"))
+	   (mapcar #'cl-second package-archive-contents))))
+    (cl-letf (((symbol-function 'package-activate-1) #'ignore))
+      (dolist (shmelp (list (car lst)))
+	(let ((key (intern (package-desc-full-name shmelp))))
+	  (condition-case err
+	      (package-install shmelp)
+	    (error (setf (alist-get key shmelpa--outliers)
+			 (error-message-string err))))
+	  (unless (alist-get key shmelpa--outliers)
+	    (let ((package-table
+		   (mapcar
+		    (lambda (p) (cons (package-desc-full-name p) p))
+		    (delq nil
+			  (mapcar (lambda (p) (unless (package-built-in-p p) p))
+				  (apply #'append (mapcar #'cdr (package--alist))))))))
+	      (dolist (desc (mapcar #'cdr package-table))
+		(package-delete desc t nil)))))))))
 
 (when (< emacs-major-version 27)
   (condition-case err
