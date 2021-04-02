@@ -260,15 +260,16 @@ short description."
     (when (file-exists-p src)
       (pcase kind
 	('tar (shmelpa--doctor-tar name src dest undesired desired))
-	('single (with-temp-file dest
-		   (let ((coding-system-for-read 'utf-8))
-		     (save-excursion
-		       (insert-file-contents src))
-		     (save-excursion
-		       (while (re-search-forward
-			       (regexp-quote (cl-subseq undesired (1+ (length name))))
-			       nil t)
-			 (replace-match (cl-subseq desired (1+ (length name)))))))))))))
+	('single (let ((coding-system-for-write 'raw-text))
+		   (with-temp-file dest
+		     (let ((coding-system-for-read 'utf-8))
+		       (save-excursion
+			 (insert-file-contents src))
+		       (save-excursion
+			 (while (re-search-forward
+				 (regexp-quote (cl-subseq undesired (1+ (length name))))
+				 nil t)
+			   (replace-match (cl-subseq desired (1+ (length name))))))))))))))
 
 (defun shmelpa-check-one-deliverable (name file kind undesired desired)
   (let* ((src (expand-file-name file shmelpa-targets-dir))
@@ -308,7 +309,10 @@ short description."
 		  (push name bad)))
 	   finally return bad))
 
-(cl-defun shmelpa-doctor-contents (infile outfile midfile &key specific (at-most 10))
+(defun shmelpa-all-contents ()
+  (mapcar #'car (cdr (shmelpa--file-to-sexpr shmelpa-final-file))))
+
+(cl-defun shmelpa-doctor-contents (infile outfile midfile &key specific (at-most most-positive-fixnum))
   (let ((package-archives '(("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/")))
 	(ocontents (and (file-exists-p midfile)
 			(cdr (shmelpa--file-to-sexpr midfile))))

@@ -11,3 +11,7 @@
 *.~undo-tree
 
 cert
+bitnami_application_password
+archive-contents-ingested
+archive-contents-final
+archive-contents-staging
