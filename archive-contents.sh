@@ -11,7 +11,10 @@ if ! diff -wc archive-contents-final archive-contents-staging ; then
 else
     rm archive-contents-staging
 fi
-LIVE="/opt/bitnami/nginx/html/packages/archive-contents"
-if [ -f $LIVE ]; then
-    cp -a archive-contents-final $LIVE
+LIVE="/opt/bitnami/nginx/html/packages"
+if [ -d $LIVE ]; then
+    if [ -e "$LIVE/archive-contents" ]; then
+        mv $LIVE/archive-contents $LIVE/archive-contents.orig
+    fi
+    cp -a archive-contents-final $LIVE/archive-contents
 fi

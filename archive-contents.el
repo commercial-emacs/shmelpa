@@ -180,7 +180,7 @@
   (cl-flet ((winnow-p (package)
 		      (let ((pkg-version (package--ac-desc-version (cdr package))))
 			(version-list-< pkg-version
-					(version-to-list "20190101")))))
+					(version-to-list "20130101")))))
     (cons (car contents) (cl-remove-if #'winnow-p (cdr contents)))))
 
 (defun shmelpa--file-to-sexpr (infile)
