@@ -93,7 +93,7 @@
       (if-let ((buffer (url-retrieve-synchronously url t nil 5)))
 	  (unwind-protect
 	      (with-current-buffer buffer
-		(when (and (url-http-parse-headers) (= url-http-response-status 200))
+		(when (and (ignore-errors (url-http-parse-headers)) (= url-http-response-status 200))
 		  (goto-char (marker-position url-http-end-of-headers))
 		  (when-let* ((desc (ignore-errors
 				      (package-process-define-package
@@ -236,7 +236,7 @@ short description."
 	 (to-delete (cl-remove-if
 		     (lambda (f) (member f (list src dest srcr destr)))
 		     (directory-files (file-name-directory dest) t
-				      (concat (regexp-quote name) "-[^-]+")))))
+				      (concat "^" (regexp-quote name) "-[^-]+$")))))
     (mapc #'delete-file to-delete)
     (when (and (file-exists-p srcr) (not (string= srcr destr)))
       (copy-file srcr destr t))
@@ -244,6 +244,44 @@ short description."
       (pcase kind
 	('tar (shmelpa--doctor-tar src dest undesired desired))
 	('single (copy-file src dest t))))))
+
+(defun shmelpa-check-one-deliverable (name file kind undesired desired)
+  (let* ((src (expand-file-name file shmelpa-targets-dir))
+	 (srcr (expand-file-name (concat name "-readme.txt") shmelpa-targets-dir))
+	 (destr (expand-file-name (concat name "-readme.txt") shmelpa-packages-dir))
+	 (nfile (replace-regexp-in-string
+		 (regexp-quote undesired)
+		 desired file nil 'literal))
+	 (dest (expand-file-name nfile shmelpa-packages-dir)))
+    (cl-every #'file-exists-p (list src dest srcr destr))))
+
+(cl-defun shmelpa-check-deliverables (infile)
+  (cl-loop with bad
+	   with contents = (shmelpa--file-to-sexpr infile)
+	   for (name . desc) in (cdr contents)
+	   for desired = (package--ac-desc-version desc)
+	   for undesired = (nthcdr (- (length desired) 2) desired)
+	   unless (shmelpa--undesired-p desired)
+	   do (let* ((kind (package--ac-desc-kind desc))
+		     (desired-desc
+		      (package-desc-create
+		       :name name
+		       :version desired
+		       :kind kind))
+		     (undesired-desc
+		      (package-desc-create
+		       :name name
+		       :version undesired
+		       :kind kind)))
+		(unless (shmelpa-check-one-deliverable
+			 (symbol-name name)
+			 (concat (package-desc-full-name undesired-desc)
+				 (package-desc-suffix undesired-desc))
+			 kind
+			 (package-desc-full-name undesired-desc)
+			 (package-desc-full-name desired-desc))
+		  (push name bad)))
+	   finally return bad))
 
 (cl-defun shmelpa-doctor-deliverables (infile &key at-most)
   (cl-loop with contents = (shmelpa--file-to-sexpr infile)
@@ -273,7 +311,7 @@ short description."
 		 (package-desc-full-name undesired-desc)
 		 (package-desc-full-name desired-desc)))))
 
-(cl-defun shmelpa-doctor-contents (infile outfile midfile &key one-pack (at-most 10))
+(cl-defun shmelpa-doctor-contents (infile outfile midfile &key specific (at-most 10))
   (let ((package-archives '(("shmelpa" . "https://shmelpa.commandlinesystems.com/packages/")))
 	(ocontents (and (file-exists-p midfile)
 			(cdr (shmelpa--file-to-sexpr midfile))))
@@ -289,10 +327,11 @@ short description."
 	     do (setf (package--ac-desc-version desc) full-oversion)
 	     end
 	     if (and (< nchanged at-most)
-		     (or (not one-pack) (string= (symbol-name name) one-pack))
-		     (or (null oversion)
-			 (not (version-list-= version oversion))
-			 (shmelpa--undesired-p full-oversion)))
+		     (if specific
+			 (memq name specific)
+		       (or (null oversion)
+			   (not (version-list-= version oversion))
+			   (shmelpa--undesired-p full-oversion))))
 	     do (let* ((pkg-desc
 			(package-desc-create
 			 :name name

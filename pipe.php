@@ -27,12 +27,15 @@ if (!is_dir($cache)) {
 	exit();
     }
 }
+$readme = "$cache/${package_name}-readme.txt";
+if (!file_exists($readme)) {
+    curl_close(live_curl("https://melpa.org/packages/${package_name}-readme.txt", $readme));
+}
 $filename = "$cache/$target";
 $filesize = file_exists($filename) ? filesize($filename) : 0;
 if (!$filesize) {
     array_map('unlink',
 	      array_filter((array)glob("$cache/${package_name}-[0-9][0-9][0-9][0-9][0-9][0-9][0-9]*")));
-    curl_close(live_curl("https://melpa.org/packages/${package_name}-readme.txt", "$cache/${package_name}-readme.txt"));
     $ch = live_curl("https://melpa.org/packages/${target}", $filename);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     if ($status >= 400 || curl_error($ch)) {
