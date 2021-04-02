@@ -255,9 +255,9 @@ short description."
 	 (dest (expand-file-name nfile shmelpa-packages-dir)))
     (cl-every #'file-exists-p (list src dest srcr destr))))
 
-(cl-defun shmelpa-check-deliverables (infile)
+(cl-defun shmelpa-check-deliverables ()
   (cl-loop with bad
-	   with contents = (shmelpa--file-to-sexpr infile)
+	   with contents = (shmelpa--file-to-sexpr shmelpa-final-file)
 	   for (name . desc) in (cdr contents)
 	   for desired = (package--ac-desc-version desc)
 	   for undesired = (nthcdr (- (length desired) 2) desired)
