@@ -4,7 +4,7 @@
 cat <(curl -sSL https://raw.githubusercontent.com/commercial-emacs/commercial-emacs/master/README.md) /dev/fd/3 3<<EOF | pandoc -s "$@"
 
 
-### Are You a UNIX-driven research enterprise?
+### Are you a UNIX-driven research enterprise?
 
 No, but if *you* are, let us show you how Emacs can be
 your soup-to-nuts computing platform.  Pick up the phone,
