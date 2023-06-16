@@ -222,15 +222,15 @@
 					   commit)
 				     "/"))))
 	      (search-dirs
-	       (cons ""
-		     (cl-remove-if-not
-		      #'identity
-		      (mapcar #'file-name-directory
-			      (cl-remove-if-not
-			       #'stringp
-			       (plist-get recipe :files))))))
+	       (append '("" "lisp") ;; melpa recipe :defaults keyword
+		       (cl-remove-if-not
+		        #'identity
+		        (mapcar #'file-name-directory
+			        (cl-remove-if-not
+			         #'stringp
+			         (plist-get recipe :files))))))
 	      (search-urls
-	       (mapcar (lambda (dir) (format "%s/%s%s-pkg.el" fragile dir name))
+	       (mapcar (lambda (dir) (format "%s/%s%s-pkg.el" fragile (file-name-as-directory dir) name))
 		       search-dirs)))
     (dolist (url search-urls)
       (if-let ((buffer (url-retrieve-synchronously url t nil 5)))
